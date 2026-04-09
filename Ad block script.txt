@@ -1,0 +1,381 @@
+#!/bin/bash
+# ============================================
+# X10 ULTIMATE AD BLOCKER - Professional Edition
+# Version: 4.0
+# ============================================
+
+VERSION="4.0"
+AUTHOR="X10 Team"
+SCRIPT_NAME="X10 Ultimate Ad Blocker"
+
+# ============================================
+# الألوان والتنسيق
+# ============================================
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+
+# ============================================
+# قوائم النطاقات الموسعة
+# ============================================
+
+# إعلانات عادية
+NORMAL_ADS=(
+    "doubleclick.net"
+    "googleadservices.com"
+    "adservice.google.com"
+    "googletagmanager.com"
+    "google-analytics.com"
+    "googlesyndication.com"
+    "pagead2.googlesyndication.com"
+    "ads.yahoo.com"
+    "advertising.com"
+    "adnxs.com"
+    "criteo.com"
+    "rubiconproject.com"
+    "openx.net"
+    "pubmatic.com"
+    "indexexchange.com"
+    "appnexus.com"
+    "sovrn.com"
+    "districtm.io"
+    "rhythmone.com"
+    "conversantmedia.com"
+)
+
+# إعلانات محتوى
+CONTENT_ADS=(
+    "taboola.com"
+    "outbrain.com"
+    "revcontent.com"
+    "mgid.com"
+    "content.ad"
+    "zergnet.com"
+    "disqus.com"
+    "sharethrough.com"
+    "nativery.com"
+    "plista.com"
+    "adblade.com"
+    "engageya.com"
+    "trending.net"
+)
+
+# إعلانات منبثقة وإعلانات للمحتوى الكبير
+POPUP_ADS=(
+    "adcash.com"
+    "popads.net"
+    "exoclick.com"
+    "propellerads.com"
+    "popmyads.com"
+    "clickadu.com"
+    "adsterra.com"
+    "adspirit.com"
+    "adthrive.com"
+    "mediavine.com"
+    "trafficjunky.com"
+    "juicyads.com"
+    "ero-advertising.com"
+    "hilltopads.com"
+)
+
+# إعلانات بالغة
+ADULT_ADS=(
+    "adultadworld.com"
+    "sexad.net"
+    "pornadnetwork.com"
+    "adultads.net"
+    "xxxadult.com"
+    "adultadvertising.com"
+    "pornhubads.com"
+    "redtubeads.com"
+    "xvideosad.com"
+    "youpornad.com"
+    "xnxxad.com"
+    "adultfriendfinder.com"
+)
+
+# شبكات تتبع وتحليلات
+TRACKING_ADS=(
+    "scorecardresearch.com"
+    "quantserve.com"
+    "piwik.org"
+    "matomo.org"
+    "hotjar.com"
+    "crazyegg.com"
+    "mixpanel.com"
+    "segment.com"
+    "amplitude.com"
+    "intercom.com"
+    "drift.com"
+)
+
+# شبكات تواصل اجتماعي
+SOCIAL_ADS=(
+    "facebook.com/tr"
+    "connect.facebook.net"
+    "googleadservices.com/pagead/conversion"
+    "linkedin.com/trk"
+    "twitter.com/i/ads"
+    "pinterest.com/ads"
+    "tiktok.com/ads"
+    "snapchat.com/ads"
+)
+
+# ============================================
+# الدوال الرئيسية
+# ============================================
+
+print_banner() {
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                                                              ║"
+    echo "║     ██╗  ██╗ █████╗ ██████╗ ██╗   ██╗██╗███╗   ██╗          ║"
+    echo "║     ╚██╗██╔╝██╔══██╗██╔══██╗╚██╗ ██╔╝██║████╗  ██║          ║"
+    echo "║      ╚███╔╝ ╚█████╔╝██████╔╝ ╚████╔╝ ██║██╔██╗ ██║          ║"
+    echo "║      ██╔██╗ ██╔══██╗██╔══██╗  ╚██╔╝  ██║██║╚██╗██║          ║"
+    echo "║     ██╔╝ ██╗╚█████╔╗██║  ██║   ██║   ██║██║ ╚████║          ║"
+    echo "║     ╚═╝  ╚═╝ ╚════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝╚═╝  ╚═══╝          ║"
+    echo "║                                                              ║"
+    echo "║              X10 ULTIMATE AD BLOCKER v$VERSION              ║"
+    echo "║                      حاجب الإعلانات المتطور                  ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        echo -e "${RED}❌ يرجى تشغيل السكريبت كجذر (sudo)${NC}"
+        exit 1
+    fi
+}
+
+check_internet() {
+    echo -e "${BLUE}🌐 جاري التحقق من الاتصال بالإنترنت...${NC}"
+    if ping -c 1 google.com &>/dev/null; then
+        echo -e "${GREEN}✅ الاتصال بالإنترنت نشط${NC}"
+        return 0
+    else
+        echo -e "${YELLOW}⚠️ لا يوجد اتصال بالإنترنت، سيتم استخدام القوائم المحلية فقط${NC}"
+        return 1
+    fi
+}
+
+create_backup() {
+    if [ ! -f /etc/hosts.x10backup ]; then
+        cp /etc/hosts /etc/hosts.x10backup
+        echo -e "${GREEN}✅ تم إنشاء نسخة احتياطية في /etc/hosts.x10backup${NC}"
+    else
+        echo -e "${YELLOW}⚠️ النسخة الاحتياطية موجودة مسبقاً${NC}"
+    fi
+}
+
+update_hosts_file() {
+    local category="$1"
+    local ads_list=("${!2}")
+    local count=0
+    
+    for ad in "${ads_list[@]}"; do
+        if ! grep -q "127.0.0.1 $ad" /etc/hosts; then
+            echo "127.0.0.1 $ad" >> /etc/hosts
+            ((count++))
+        fi
+    done
+    
+    echo -e "${GREEN}✅ [$category] تم حظر $count نطاق${NC}"
+}
+
+download_external_lists() {
+    echo -e "${BLUE}📥 جاري تحميل قوائم إعلانات خارجية...${NC}"
+    
+    local external_lists=(
+        "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts"
+        "https://someonewhocares.org/hosts/zero/hosts"
+        "https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt"
+    )
+    
+    local temp_file="/tmp/external_hosts.txt"
+    
+    for url in "${external_lists[@]}"; do
+        curl -s "$url" 2>/dev/null | grep -E "^0\.0\.0\.0|^127\.0\.0\.1" | awk '{print $2}' >> "$temp_file"
+    done
+    
+    if [ -f "$temp_file" ]; then
+        sort -u "$temp_file" | while read domain; do
+            if [ -n "$domain" ] && ! grep -q "127.0.0.1 $domain" /etc/hosts; then
+                echo "127.0.0.1 $domain" >> /etc/hosts
+            fi
+        done
+        rm -f "$temp_file"
+        echo -e "${GREEN}✅ تم تحميل القوائم الخارجية${NC}"
+    fi
+}
+
+show_menu() {
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                         القائمة الرئيسية                      ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  1) حظر جميع الإعلانات (كاملة)                               ║"
+    echo "║  2) حظر إعلانات عادية فقط                                     ║"
+    echo "║  3) حظر إعلانات محتوى فقط                                     ║"
+    echo "║  4) حظر إعلانات منبثقة فقط                                    ║"
+    echo "║  5) حظر إعلانات بالغة فقط                                     ║"
+    echo "║  6) حظر تتبع وتحليلات فقط                                     ║"
+    echo "║  7) استعادة الإعدادات الأصلية                                 ║"
+    echo "║  8) عرض الإحصائيات                                            ║"
+    echo "║  9) الخروج                                                    ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+show_stats() {
+    local blocked_count=$(grep -c "127.0.0.1" /etc/hosts)
+    local backup_exists="لا"
+    
+    if [ -f /etc/hosts.x10backup ]; then
+        backup_exists="نعم"
+    fi
+    
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                         الإحصائيات                           ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo -e "║  📊 النطاقات المحظورة: ${GREEN}$blocked_count${NC}                                             ║"
+    echo -e "║  💾 النسخة الاحتياطية: ${GREEN}$backup_exists${NC}                                              ║"
+    echo -e "║  📅 آخر تحديث: ${GREEN}$(date '+%Y-%m-%d %H:%M:%S')${NC}                                      ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    
+    echo -e "\n${BLUE}📋 أحدث النطاقات المحظورة:${NC}"
+    grep "127.0.0.1" /etc/hosts | tail -10 | awk '{print "  • " $2}'
+    
+    echo -e "${NC}"
+}
+
+restore_hosts() {
+    if [ -f /etc/hosts.x10backup ]; then
+        cp /etc/hosts.x10backup /etc/hosts
+        echo -e "${GREEN}✅ تم استعادة ملف hosts الأصلي${NC}"
+    else
+        echo -e "${RED}❌ لا توجد نسخة احتياطية للاستعادة${NC}"
+    fi
+}
+
+flush_dns() {
+    echo -e "${BLUE}🔄 جاري مسح ذاكرة DNS...${NC}"
+    
+    # Linux
+    if command -v systemctl &> /dev/null && systemctl is-active systemd-resolved &> /dev/null; then
+        systemctl restart systemd-resolved
+    elif command -v dnsmasq &> /dev/null; then
+        systemctl restart dnsmasq 2>/dev/null || killall -HUP dnsmasq 2>/dev/null
+    elif command -v nscd &> /dev/null; then
+        systemctl restart nscd
+    fi
+    
+    # Mac
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        dscacheutil -flushcache
+        killall -HUP mDNSResponder
+    fi
+    
+    # Windows (WSL)
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        ipconfig /flushdns
+    fi
+    
+    echo -e "${GREEN}✅ تم مسح ذاكرة DNS${NC}"
+}
+
+block_all() {
+    echo -e "${BLUE}🚀 بدء حظر جميع الإعلانات...${NC}"
+    update_hosts_file "إعلانات عادية" NORMAL_ADS[@]
+    update_hosts_file "إعلانات محتوى" CONTENT_ADS[@]
+    update_hosts_file "إعلانات منبثقة" POPUP_ADS[@]
+    update_hosts_file "إعلانات بالغة" ADULT_ADS[@]
+    update_hosts_file "تتبع وتحليلات" TRACKING_ADS[@]
+    update_hosts_file "شبكات تواصل" SOCIAL_ADS[@]
+    download_external_lists
+    flush_dns
+    echo -e "${GREEN}✅ اكتمل حظر جميع الإعلانات!${NC}"
+}
+
+block_category() {
+    local name="$1"
+    local list_name="$2"
+    echo -e "${BLUE}🚀 بدء حظر $name...${NC}"
+    update_hosts_file "$name" "$list_name"
+    flush_dns
+    echo -e "${GREEN}✅ اكتمل حظر $name${NC}"
+}
+
+# ============================================
+# الواجهة الرئيسية
+# ============================================
+
+main() {
+    clear
+    print_banner
+    check_root
+    create_backup
+    
+    if [[ "$1" == "--auto" ]] || [[ "$1" == "-a" ]]; then
+        block_all
+        exit 0
+    fi
+    
+    while true; do
+        show_menu
+        read -p "اختر خياراً [1-9]: " choice
+        
+        case $choice in
+            1) block_all ;;
+            2) block_category "الإعلانات العادية" NORMAL_ADS[@] ;;
+            3) block_category "إعلانات المحتوى" CONTENT_ADS[@] ;;
+            4) block_category "الإعلانات المنبثقة" POPUP_ADS[@] ;;
+            5) block_category "الإعلانات البالغة" ADULT_ADS[@] ;;
+            6) block_category "التتبع والتحليلات" TRACKING_ADS[@] ;;
+            7) restore_hosts ;;
+            8) show_stats ;;
+            9) echo -e "${GREEN}👋 وداعاً!${NC}"; exit 0 ;;
+            *) echo -e "${RED}❌ خيار غير صحيح${NC}" ;;
+        esac
+        
+        echo ""
+        read -p "اضغط Enter للمتابعة..."
+        clear
+        print_banner
+    done
+}
+
+# ============================================
+# معالجة الأوامر السطرية
+# ============================================
+
+case "$1" in
+    --help|-h)
+        echo "الاستخدام: $0 [OPTION]"
+        echo "  --auto, -a     تشغيل الحظر التلقائي"
+        echo "  --restore      استعادة الإعدادات الأصلية"
+        echo "  --stats        عرض الإحصائيات"
+        echo "  --help, -h     عرض هذه المساعدة"
+        ;;
+    --restore)
+        check_root
+        restore_hosts
+        flush_dns
+        ;;
+    --stats)
+        show_stats
+        ;;
+    --auto|-a)
+        main --auto
+        ;;
+    *)
+        main
+        ;;
+esac
